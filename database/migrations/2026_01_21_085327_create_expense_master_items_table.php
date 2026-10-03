@@ -6,22 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::create('masterpengeluaranbarang', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 50); //Contoh: "Makanan","Minuman"
+            $table->string('name')->unique(); 
+            $table->string('default_unit');
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('masterpengeluaranbarang');
     }
 };

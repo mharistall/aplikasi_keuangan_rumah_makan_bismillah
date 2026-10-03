@@ -1,97 +1,76 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\LoginController;
+// File: routes/web.php
+
+use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\BulananController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\TransactionController;
-use App\Http\Controllers\HarianController; // Untuk Rekap Harian
-use App\Http\Controllers\BulananController; // Untuk Rekap Bulanan
-use App\Http\Middleware\CheckRole; // <<< PERBAIKAN: Import CheckRole middleware
+use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\HarianController;
+use App\Http\Controllers\TahunanController;
+use App\Http\Controllers\LabaRugiController;
+use App\Http\Controllers\LoginController;
 use App\Http\Controllers\MenuController;
-// Hapus import Controller yang tidak digunakan lagi (misalnya App\Models\Transaction; Carbon\Carbon;
-// karena sudah ada di dalam Controller atau tidak diperlukan di web.php langsung)
-// Hapus juga App\Http\Controllers\InputTransaksiController; RekapHarianController; RekapBulananController;
-// dan LaporanController; PengaturanController; jika Anda belum membuatnya atau menggunakan nama lain.
-// Jika LaporanController dan PengaturanController akan dibuat, biarkan saja import-nya.
+use App\Http\Controllers\TransactionController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+Auth::routes(['register' => false]);
 
-// --- Rute Halaman Publik (tanpa login) ---
-
-// Halaman awal, akan mengarahkan ke halaman login
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Rute Login dan Logout
-// Pastikan LoginController Anda memiliki method 'showLogin' (GET) dan 'login' (POST)
 Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+Route::post('password/reset', [ResetPasswordController::class, 'reset'])->name('password.update');
+Route::get('password/reset/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
 
-// --- Rute yang Memerlukan Autentikasi ---
-// Semua rute di dalam grup ini akan memerlukan user untuk login terlebih dahulu.
 Route::middleware(['auth'])->group(function () {
 
-    // Rute Dashboard (akses oleh pemilik dan admin)
-    // Pastikan DashboardController::index mengarahkan ke view 'dashbord'
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')
-        ->middleware(CheckRole::class . ':pemilik');  // Menggunakan 'admin' sebagai ganti 'kasir'
+    /* --- RUTE DASHBOARD & LAPORAN (Hanya Pemilik) --- */
+    Route::middleware('checkrole:pemilik')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/laba-rugi', [LabaRugiController::class, 'index'])->name('laba-rugi.index');
+        Route::prefix('laba-rugi/export')->name('laba-rugi.export.')->group(function () {
+            Route::get('/pdf', [LabaRugiController::class, 'exportPdf'])->name('pdf');
+            Route::get('/excel', [LabaRugiController::class, 'exportExcel'])->name('excel');
+        });
+        Route::get('/harian', [HarianController::class, 'index'])->name('rekap.harian');
+        Route::get('/rekap-harian/grafik/{year?}/{month?}', [HarianController::class, 'showGraph'])->name('rekap.harian.grafik');
+        Route::get('/bulanan', [BulananController::class, 'index'])->name('rekap.bulanan');
+        Route::get('/rekap-bulanan/grafik/{year?}', [BulananController::class, 'showGraph'])->name('rekap.bulanan.grafik');
+        Route::get('/tahunan', [TahunanController::class, 'index'])->name('rekap.tahunan');
+        Route::get('/rekap-tahunan/grafik/{year?}', [TahunanController::class, 'showGraph'])->name('rekap.tahunan.grafik');
 
-    // Rute Input Transaksi (akses hanya oleh admin)
-    Route::get('/input-transaksi', [TransactionController::class, 'create'])->name('input.transaksi')
-        ->middleware(CheckRole::class . ':admin');
-    Route::post('/transaksi/store', [TransactionController::class, 'store'])->name('transactions.store')
-        ->middleware(CheckRole::class . ':admin');
+        // Pemilik hanya melihat daftar (View Only)
+        Route::get('/pemilik/daftar-pengeluaran', [ExpenseController::class, 'ownerIndex'])->name('pemilik.pengeluaran.index');
+    });
 
-    // Rute Rekap Harian (akses oleh pemilik )
-    // Menggunakan HarianController::index
-    Route::get('/harian', [HarianController::class, 'index'])->name('rekap.harian')
-        ->middleware(CheckRole::class . ':pemilik');
-// <<< Rute BARU untuk Halaman Grafik Harian >>>
-    Route::get('/rekap-harian/grafik/{year?}/{month?}', [App\Http\Controllers\HarianController::class, 'showGraph'])->name('rekap.harian.grafik')
-        ->middleware(App\Http\Middleware\CheckRole::class . ':pemilik'); // Asumsi hanya pemilik yang bisa melihat grafik ini
+    /* --- RUTE INPUT TRANSAKSI & MASTER DATA (Hanya Admin) --- */
+    Route::middleware('checkrole:admin')->group(function () {
+        Route::get('/input-transaksi', [TransactionController::class, 'create'])->name('input.transaksi');
+        Route::post('/transaksi/store', [TransactionController::class, 'store'])->name('transactions.store');
 
-    // Rute Rekap Bulanan (akses oleh pemilik)
-    // Menggunakan BulananController::index
-    Route::get('/bulanan', [BulananController::class, 'index'])->name('rekap.bulanan')
-        ->middleware(CheckRole::class . ':pemilik');
-        // Rute BARU untuk Halaman Grafik Bulanan
-    Route::get('/rekap-bulanan/grafik/{year?}', [BulananController::class, 'showGraph'])->name('rekap.bulanan.grafik')
-        ->middleware(CheckRole::class . ':pemilik'); // Hanya pemilik
-    
-    // Rute yang hanya bisa diakses oleh 'pemilik'
-    // Asumsi Anda akan membuat LaporanController dan PengaturanController
-    // Jika belum ada, Anda perlu membuat controllernya:
-    // php artisan make:controller LaporanController
-    // php artisan make:controller PengaturanController
-    // Lalu isi method 'index' di dalamnya.
+        Route::resource('menu', MenuController::class)->only(['index', 'store', 'update', 'destroy']);
 
-    // Rute Edit Menu (akses hanya oleh admin)
-    Route::get('/edit-menu', [MenuController::class, 'index'])->name('menu.index')
-        ->middleware(CheckRole::class . ':admin');
-    Route::post('/menu/store', [MenuController::class, 'store'])->name('menu.store')
-        ->middleware(CheckRole::class . ':admin');
-    Route::get('/edit-menu', [MenuController::class, 'index'])->name('menu.index')
-        ->middleware(CheckRole::class . ':admin');
-    Route::post('/menu/store', [MenuController::class, 'store'])->name('menu.store')
-        ->middleware(CheckRole::class . ':admin');
-    Route::put('/menu/{menu}', [MenuController::class, 'update'])->name('menu.update') // Rute untuk update
-        ->middleware(CheckRole::class . ':admin');
-    Route::delete('/menu/{menu}', [MenuController::class, 'destroy'])->name('menu.destroy') // Rute untuk hapus
-        ->middleware(CheckRole::class . ':admin');
+        Route::prefix('master-kategori')->name('master.kategori.')->group(function () {
+            Route::get('/', [MenuController::class, 'categoryIndex'])->name('index');
+            Route::post('/', [MenuController::class, 'categoryStore'])->name('store');
+            Route::put('/{category}', [MenuController::class, 'categoryUpdate'])->name('update');
+            Route::delete('/{category}', [MenuController::class, 'categoryDestroy'])->name('destroy');
+        });
 
-    
+        Route::post('/admin/master-item', [ExpenseController::class, 'storeMasterItem'])->name('admin.master-item.store');
+
+        // REVISI: Mengembalikan rute Update dan Delete ke Admin
+        Route::prefix('admin/kelola-pengeluaran')->name('admin.pengeluaran.')->group(function () {
+            Route::get('/', [ExpenseController::class, 'adminIndex'])->name('index');
+            Route::post('/', [ExpenseController::class, 'store'])->name('store');
+            Route::put('/{expense}', [ExpenseController::class, 'update'])->name('update');
+            Route::delete('/{expense}', [ExpenseController::class, 'destroy'])->name('destroy');
+        });
+    });
 });
-

@@ -9,22 +9,20 @@ class TransactionDetail extends Model
 {
     use HasFactory;
 
-    protected $table = 'detailtransaksi'; // Perbaiki ini agar sesuai dengan DB Anda
+    protected $table = 'detailtransaksi';
 
-    protected $fillable = [ // Tambahkan fillable untuk kolom yang akan diisi massal
+    protected $fillable = [
         'transaction_id',
         'menu_id',
         'quantity',
-        'subtotal'
+        'subtotal',
     ];
 
-    // Relasi: Detail transaksi ini milik satu transaksi
     public function transaction()
     {
         return $this->belongsTo(Transaction::class, 'transaction_id', 'id');
     }
 
-    // Relasi: Detail transaksi ini untuk satu menu
     public function menu()
     {
         return $this->belongsTo(Menu::class, 'menu_id', 'id');

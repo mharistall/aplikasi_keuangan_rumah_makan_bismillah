@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Category;
+use App\Models\Expense;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
-use App\Models\Category;
+use Illuminate\Http\Request;
 
 class BulananController extends Controller
 {
@@ -19,17 +20,28 @@ class BulananController extends Controller
         $endOfMonth = date('Y-m-t 23:59:59', strtotime("{$selectedYear}-{$selectedMonth}-01"));
 
         $dailySummaries = Transaction::selectRaw('DATE(transaction_date) as transaction_date_only, COUNT(DISTINCT customer_number) as total_customers_today, SUM(total_amount) as total_daily_income')
-                                    ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-                                    ->groupBy('transaction_date_only')
-                                    ->orderBy('transaction_date_only', 'desc')
-                                    ->paginate($perPage);
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+            ->groupBy('transaction_date_only')
+            ->orderBy('transaction_date_only', 'desc')
+            ->paginate($perPage);
 
         $totalMonthlyIncome = Transaction::whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-                                        ->sum('total_amount');
+            ->sum('total_amount');
         $totalMonthlyTransactions = Transaction::whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->count();
 
+        $dailyExpenseSummaries = Expense::selectRaw('DATE(expense_date) as expense_date_only, SUM(amount) as total_daily_expense')
+            ->whereBetween('expense_date', [$startOfMonth, $endOfMonth])
+            ->groupBy('expense_date_only')
+            ->orderBy('expense_date_only', 'desc')
+            ->get();
+
+        $totalMonthlyExpense = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
+
+        $netProfitMonthly = $totalMonthlyIncome - $totalMonthlyExpense;
+
         $topSellingMenusPerCategory = [];
-        $categories = Category::all();
+        $categories = Category::income()->get();
 
         foreach ($categories as $category) {
             $topMenu = TransactionDetail::selectRaw('menu.name, SUM(detailtransaksi.quantity) as total_quantity')
@@ -50,9 +62,32 @@ class BulananController extends Controller
             }
         }
 
+        $combinedSummaries = collect($dailySummaries->items())->keyBy(function ($item) {
+            return $item->transaction_date_only;
+        });
+
+        foreach ($dailyExpenseSummaries as $expenseSummary) {
+            $dateKey = $expenseSummary->expense_date_only;
+            if ($combinedSummaries->has($dateKey)) {
+                $combinedSummaries[$dateKey]->total_daily_expense = $expenseSummary->total_daily_expense;
+            } else {
+                $combinedSummaries[$dateKey] = (object) [
+                    'transaction_date_only' => $dateKey,
+                    'total_customers_today' => 0,
+                    'total_daily_income' => 0,
+                    'total_daily_expense' => $expenseSummary->total_daily_expense,
+                ];
+            }
+        }
+
+        $combinedSummaries = $combinedSummaries->sortByDesc('transaction_date_only');
+
         return view('bulanan', [
             'dailySummaries' => $dailySummaries,
+            'combinedSummaries' => $combinedSummaries,
             'totalMonthlyIncome' => $totalMonthlyIncome,
+            'totalMonthlyExpense' => $totalMonthlyExpense,
+            'netProfitMonthly' => $netProfitMonthly,
             'totalMonthlyTransactions' => $totalMonthlyTransactions,
             'selectedMonth' => $selectedMonth,
             'selectedYear' => $selectedYear,
@@ -65,18 +100,24 @@ class BulananController extends Controller
     {
         $selectedYear = $request->input('year', $year ?? date('Y'));
 
-        $monthlyIncomeData = [];
+        $monthlyData = [];
         for ($m = 1; $m <= 12; $m++) {
             $monthStart = date('Y-m-01 00:00:00', strtotime("{$selectedYear}-{$m}-01"));
             $monthEnd = date('Y-m-t 23:59:59', strtotime("{$selectedYear}-{$m}-01"));
 
             $income = Transaction::whereBetween('transaction_date', [$monthStart, $monthEnd])->sum('total_amount');
-            $monthlyIncomeData[date('M', strtotime("{$selectedYear}-{$m}-01"))] = $income;
+            $expense = Expense::whereBetween('expense_date', [$monthStart, $monthEnd])->sum('amount');
+
+            $monthlyData[date('M', strtotime("{$selectedYear}-{$m}-01"))] = [
+                'income' => $income,
+                'expense' => $expense,
+                'profit' => $income - $expense,
+            ];
         }
 
         return view('grafikbulanan', [
             'selectedYear' => $selectedYear,
-            'monthlyIncomeData' => $monthlyIncomeData
+            'monthlyData' => $monthlyData,
         ]);
     }
 }

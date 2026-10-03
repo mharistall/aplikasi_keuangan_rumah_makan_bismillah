@@ -8,210 +8,162 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* --- Gaya Sidebar dari harian.blade.php --- */
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #1e3a8a, #1e40af);
-            transition: all 0.3s;
-        }
-        .sidebar-link {
-            transition: all 0.2s;
-            color: white; /* Default link color */
-            padding: 1rem; /* Padding for click area */
-            display: flex;
-            align-items: center;
-            text-decoration: none; /* Remove underline */
-        }
-        .sidebar-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-left: 4px solid #fff;
-            color: white; /* Keep color white on hover */
-        }
-        .active-link {
-            background-color: rgba(255, 255, 255, 0.2);
-            border-left: 4px solid #fff;
-            color: white; /* Keep color white when active */
-        }
+        .sidebar { min-height: 100vh; background: linear-gradient(135deg, #1e3a8a, #1e40af); transition: all 0.3s; }
+        .sidebar-link { transition: all 0.2s; color: white; padding: 1rem; display: flex; align-items: center; text-decoration: none; }
+        .sidebar-link:hover { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #fff; color: white; }
+        .active-link { background-color: rgba(255, 255, 255, 0.2); border-left: 4px solid #fff; color: white; }
         @media (max-width: 768px) {
-            .sidebar {
-                position: absolute;
-                z-index: 100;
-                width: 250px;
-                transform: translateX(-100%);
-            }
-            .sidebar.active {
-                transform: translateX(0);
-            }
+            .sidebar { position: absolute; z-index: 100; width: 250px; transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); }
         }
-        /* --- End Gaya Sidebar --- */
 
-        .card-hover:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-        .rounded-circle-btn {
-            width: 38px;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background-color: #007bff; /* Primary blue */
-            color: white;
-            font-weight: bold;
-            text-decoration: none;
-        }
-        .rounded-circle-btn:hover {
-            background-color: #0056b3;
-            color: white;
-        }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .rounded-circle-btn { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: #007bff; color: white; font-weight: bold; text-decoration: none; }
+        .rounded-circle-btn:hover { background-color: #0056b3; color: white; }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="container-fluid">
         <div class="row">
-            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse p-0">
-                <div class="position-sticky pt-3 p-3 text-white">
-                    <div class="d-flex align-items-center mb-4">
-                        <i class="fas fa-utensils fa-2x me-3"></i>
-                        <h4 class="m-0">Rumah Makan Bissmillah</h4>
-                    </div>
-                    <hr class="bg-light">
-                    <ul class="nav flex-column mt-4">
-                        <li class="nav-item">
-                            <a href="{{ route('dashboard') }}" class="nav-link sidebar-link p-3 {{ Request::routeIs('dashboard') ? 'active-link' : '' }}">
-                                <i class="fas fa-tachometer-alt me-3"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{ route('rekap.harian') }}" class="nav-link sidebar-link p-3 {{ Request::routeIs('rekap.harian') || Request::routeIs('rekap.harian.grafik') ? 'active-link' : '' }}">
-                                <i class="fas fa-file-invoice-dollar me-3"></i>
-                                <span>Laporan Harian</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{ route('rekap.bulanan') }}" class="nav-link sidebar-link p-3 {{ Request::routeIs('rekap.bulanan') || Request::routeIs('rekap.bulanan.grafik') ? 'active-link' : '' }}">
-                                <i class="fas fa-chart-bar me-3"></i>
-                                <span>Laporan Bulanan</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-
+            @include('layouts.sidebar')
             <main class="col-md-9 col-lg-10 ms-sm-auto px-md-4 py-4">
+
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-0">
                             <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
                         </ol>
                     </nav>
-
-                    <div class="dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <div class="rounded-circle-btn me-2">
-                                {{ Auth::user()->name[0] ?? '?' }}
-                            </div>
-                            <span class="d-none d-md-inline">{{ Auth::user()->name ?? 'Pengguna' }}</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                            <li>
-                                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-                                    @csrf
-                                </form>
-                                <a class="dropdown-item" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                                    Logout
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    @include('layouts.user_dropdown')
                 </div>
 
+                {{-- METRIK LABA RUGI --}}
                 <div class="row mb-4">
+                    {{-- Pendapatan Hari Ini --}}
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card border-left-primary shadow h-100 py-2 card-hover">
                             <div class="card-body">
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                            Pendapatan Hari Ini</div>
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Pendapatan Hari Ini</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($totalIncomeToday, 0, ',', '.') }}</div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-calendar fa-2x text-gray-300"></i>
-                                    </div>
+                                    <div class="col-auto"><i class="fas fa-calendar fa-2x text-gray-300"></i></div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    {{-- Pengeluaran Hari Ini --}}
                     <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-success shadow h-100 py-2 card-hover">
+                        <div class="card border-left-danger shadow h-100 py-2 card-hover">
                             <div class="card-body">
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                            Pendapatan Bulan Ini</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($totalIncomeMonth, 0, ',', '.') }}</div>
+                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Pengeluaran Hari Ini</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($totalExpenseToday, 0, ',', '.') }}</div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
-                                    </div>
+                                    <div class="col-auto"><i class="fas fa-minus-circle fa-2x text-gray-300"></i></div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    {{-- Laba Bersih Hari Ini --}}
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-left-success shadow h-100 py-2 card-hover" style="border-left: 0.25rem solid {{ $netProfitToday >= 0 ? '#1cc88a' : '#e74a3b' }} !important;">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-uppercase mb-1" style="color: {{ $netProfitToday >= 0 ? '#1cc88a' : '#e74a3b' }} !important;">Laba Bersih Hari Ini</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($netProfitToday, 0, ',', '.') }}</div>
+                                    </div>
+                                    <div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Transaksi Hari Ini --}}
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card border-left-info shadow h-100 py-2 card-hover">
                             <div class="card-body">
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                            Transaksi Hari Ini</div>
+                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Transaksi Hari Ini</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $transactionCountToday }}</div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
-                                    </div>
+                                    <div class="col-auto"><i class="fas fa-clipboard-list fa-2x text-gray-300"></i></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-warning shadow h-100 py-2 card-hover">
+
+                    {{-- Metrik Bulanan --}}
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-primary shadow h-100 py-2 card-hover">
                             <div class="card-body">
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                            Menu Terlaris (Hari Ini)</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                            {{ $topSellingMenuToday->menu->name ?? 'N/A' }} 
-                                            @if($topSellingMenuToday) ({{ $topSellingMenuToday->total_quantity }}x) @endif
-                                        </div>
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Pemasukan Bulan Ini</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($totalIncomeMonth, 0, ',', '.') }}</div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-utensils fa-2x text-gray-300"></i>
-                                    </div>
+                                    <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-danger shadow h-100 py-2 card-hover">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Pengeluaran Bulan Ini</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($totalExpenseMonth, 0, ',', '.') }}</div>
+                                    </div>
+                                    <div class="col-auto"><i class="fas fa-money-bill-wave fa-2x text-gray-300"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-success shadow h-100 py-2 card-hover" style="border-left: 0.25rem solid {{ $netProfitMonth >= 0 ? '#1cc88a' : '#e74a3b' }} !important;">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-uppercase mb-1" style="color: {{ $netProfitMonth >= 0 ? '#1cc88a' : '#e74a3b' }} !important;">Laba Bersih Bulan Ini</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($netProfitMonth, 0, ',', '.') }}</div>
+                                    </div>
+                                    <div class="col-auto"><i class="fas fa-coins fa-2x text-gray-300"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                        <h6 class="m-0 font-weight-bold text-primary">Pendapatan Per Bulan ({{ date('Y') }})</h6>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown">
-                                Tahun <span class="badge bg-primary">{{ date('Y') }}</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#">{{ date('Y') }}</a></li>
-                                <li><a class="dropdown-item" href="#">{{ date('Y') - 1 }}</a></li>
-                                <li><a class="dropdown-item" href="#">{{ date('Y') - 2 }}</a></li>
-                            </ul>
-                        </div>
+                        <h6 class="m-0 font-weight-bold text-primary">Laba Rugi Per Bulan ({{ $selectedYear }})</h6>
+
+                        <form action="{{ route('dashboard') }}" method="GET" class="d-flex align-items-center">
+                            <label for="yearFilter" class="form-label mb-0 me-2 small">Tahun</label>
+                            <select class="form-select form-select-sm" id="yearFilter" name="year" onchange="this.form.submit()">
+                                @php
+                                    $currentYear = date('Y');
+                                    $startYear = $currentYear - 2; // Mulai dari 2 tahun lalu
+                                    $endYear = $currentYear + 1; // Sampai 1 tahun ke depan (termasuk 2026)
+                                @endphp
+
+                                @for ($i = $startYear; $i <= $endYear; $i++)
+                                    <option value="{{ $i }}" {{ $selectedYear == $i ? 'selected' : '' }}>{{ $i }}</option>
+                                @endfor
+                            </select>
+                        </form>
                     </div>
+
                     <div class="card-body">
                         <div class="chart-area">
                             <canvas id="incomeChart"></canvas>
@@ -221,7 +173,7 @@
 
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Transaksi Terakhir</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">5 Transaksi Pemasukan Terakhir</h6>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -258,46 +210,51 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Sidebar toggle for mobile
         document.addEventListener('DOMContentLoaded', function() {
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            if (sidebarToggle) { // Pastikan tombol toggle ada
-                sidebarToggle.addEventListener('click', function() {
-                    document.querySelector('.sidebar').classList.toggle('active');
-                });
-            }
+            // Mengambil data gabungan (Income, Expense, Profit) dari Controller
+            const monthlyData = @json($monthlyData);
+            const labels = Object.keys(monthlyData);
+            const incomeData = labels.map(key => monthlyData[key].income);
+            const expenseData = labels.map(key => monthlyData[key].expense);
+            const profitData = labels.map(key => monthlyData[key].profit);
 
-            // Income Chart (Sudah ada dari controller, tidak perlu hardcode data di sini)
             const ctx = document.getElementById('incomeChart').getContext('2d');
-            const incomeChart = new Chart(ctx, {
+
+            // Grafik Laba Rugi Komparatif
+            new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'],
+                    labels: labels,
                     datasets: [{
-                        label: 'Pendapatan (Rp)',
-                        data: @json(array_values($monthlyIncomeData)), // Data dari Controller
-                        backgroundColor: 'rgba(78, 115, 223, 0.5)',
-                        borderColor: 'rgba(78, 115, 223, 1)',
-                        borderWidth: 1
+                        label: 'Pemasukan (Rp)',
+                        data: incomeData,
+                        backgroundColor: 'rgba(78, 115, 223, 0.7)',
+                        stack: 'Stack 0',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Pengeluaran (Rp)',
+                        data: expenseData,
+                        backgroundColor: 'rgba(231, 74, 59, 0.7)',
+                        stack: 'Stack 0',
+                        yAxisID: 'y'
+                    }, {
+                        type: 'line',
+                        label: 'Laba Bersih (Rp)',
+                        data: profitData,
+                        borderColor: 'rgb(28, 200, 138)', // Hijau terang
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        yAxisID: 'y',
+                        pointRadius: 5
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Rp ' + context.raw.toLocaleString('id-ID');
-                                }
-                            }
-                        }
-                    },
                     scales: {
                         y: {
                             beginAtZero: true,
+                            title: { display: true, text: 'Jumlah (Rp)' },
                             ticks: {
                                 callback: function(value) {
                                     return 'Rp ' + value.toLocaleString('id-ID');
@@ -305,8 +262,19 @@
                             }
                         },
                         x: {
-                            grid: {
-                                display: false
+                            stacked: true,
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': Rp ' + context.raw.toLocaleString('id-ID');
+                                }
                             }
                         }
                     }

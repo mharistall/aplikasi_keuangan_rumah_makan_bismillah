@@ -2,39 +2,65 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Category;
+use App\Models\Expense;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
-use App\Models\Menu;
-use App\Models\Category;
+use Illuminate\Http\Request;
 
 class HarianController extends Controller
 {
+    protected function calculateMonthlyData($year)
+    {
+        $monthlyData = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthStart = date('Y-m-01 00:00:00', strtotime("{$year}-{$m}-01"));
+            $monthEnd = date('Y-m-t 23:59:59', strtotime("{$year}-{$m}-01"));
+
+            $income = Transaction::whereBetween('transaction_date', [$monthStart, $monthEnd])->sum('total_amount');
+            $expense = Expense::whereBetween('expense_date', [$monthStart, $monthEnd])->sum('amount');
+
+            $monthlyData[date('M', strtotime("{$year}-{$m}-01"))] = [
+                'income' => $income,
+                'expense' => $expense,
+                'profit' => $income - $expense,
+            ];
+        }
+
+        return $monthlyData;
+    }
+
     public function index(Request $request)
     {
-        // a. Ambil tanggal dari request, default hari ini (PHP Native)
         $selectedDate = $request->input('date', date('Y-m-d'));
         $perPage = $request->input('per_page', 5);
 
-        // b. Mengambil transaksi untuk tanggal tersebut dengan pagination
+        // Ambil data transaksi (termasuk nomor_meja otomatis terambil karena ada di model)
         $transactions = Transaction::whereDate('transaction_date', $selectedDate)
-                                    ->orderBy('transaction_date', 'desc')
-                                    ->with('details.menu')
-                                    ->paginate($perPage);
+            ->orderBy('transaction_date', 'desc')
+            ->with('details.menu')
+            ->paginate($perPage);
 
-        // Hitung total pemasukan hari ini
-        $totalIncome = $transactions->sum('total_amount');
-        $transactionCount = $transactions->total();
+        // REVISI: Total income diambil dari total harian di DB, bukan dari limit per halaman
+        $totalIncome = Transaction::whereDate('transaction_date', $selectedDate)->sum('total_amount');
+        $transactionCount = Transaction::whereDate('transaction_date', $selectedDate)->count();
 
-        // f. Menampilkan kotak menu terlaris per harinya
+        $expenses = Expense::whereDate('expense_date', $selectedDate)
+            ->with('category', 'user')
+            ->orderBy('expense_date', 'desc')
+            ->get();
+        $totalExpense = $expenses->sum('amount');
+
+        $netProfit = $totalIncome - $totalExpense;
+
         $topSellingMenusPerCategory = [];
-        $categories = Category::all();
+        $categories = Category::income()->get();
 
         foreach ($categories as $category) {
             $topMenu = TransactionDetail::selectRaw('menu.name, SUM(detailtransaksi.quantity) as total_quantity')
                 ->join('menu', 'detailtransaksi.menu_id', '=', 'menu.id')
                 ->join('transaksi', 'detailtransaksi.transaction_id', '=', 'transaksi.id')
-                ->whereDate('transaksi.transaction_date', $selectedDate) // Filter harian
+                ->whereDate('transaksi.transaction_date', $selectedDate)
                 ->where('menu.category_id', $category->id)
                 ->groupBy('menu.name')
                 ->orderByDesc('total_quantity')
@@ -49,54 +75,58 @@ class HarianController extends Controller
             }
         }
 
-        // Data untuk Grafik Pendapatan Per Bulan (untuk halaman grafik terpisah)
-        $selectedYearForGraph = date('Y', strtotime($selectedDate)); // Ambil tahun dari selectedDate
-        $monthlyIncomeData = [];
-        for ($m = 1; $m <= 12; $m++) {
-            $monthStart = date('Y-m-01 00:00:00', strtotime("{$selectedYearForGraph}-{$m}-01"));
-            $monthEnd = date('Y-m-t 23:59:59', strtotime("{$selectedYearForGraph}-{$m}-01"));
-
-            $income = Transaction::whereBetween('transaction_date', [$monthStart, $monthEnd])->sum('total_amount');
-            $monthlyIncomeData[date('M', strtotime("{$selectedYearForGraph}-{$m}-01"))] = $income;
-        }
+        $selectedYearForGraph = date('Y', strtotime($selectedDate));
+        $monthlyData = $this->calculateMonthlyData($selectedYearForGraph);
 
         return view('harian', [
             'transactions' => $transactions,
             'totalIncome' => $totalIncome,
             'transactionCount' => $transactionCount,
+            'expenses' => $expenses,
+            'totalExpense' => $totalExpense,
+            'netProfit' => $netProfit,
             'selectedDate' => $selectedDate,
             'topSellingMenusPerCategory' => $topSellingMenusPerCategory,
             'perPage' => $perPage,
-            'monthlyIncomeData' => $monthlyIncomeData
+            'monthlyData' => $monthlyData,
+            'selectedYearForGraph' => $selectedYearForGraph,
         ]);
     }
 
-    // Method untuk menampilkan halaman grafik harian (yang diminta sebelumnya)
-    public function showGraph(Request $request, $yearSegment = null, $monthSegment = null) // Ubah nama parameter untuk kejelasan
+    public function showGraph(Request $request, $year = null, $month = null)
     {
-        // PERBAIKAN DI SINI: Prioritaskan input dari request (form GET)
-        $selectedYear = $request->input('year', $yearSegment ?? date('Y'));
-        $selectedMonth = $request->input('month', $monthSegment ?? date('n'));
+        $year = $request->input('year', $year ?? date('Y'));
+        $month = $request->input('month', $month ?? date('m'));
 
-        // Tentukan tanggal awal dan akhir bulan yang dipilih
-        $startOfMonth = date('Y-m-01 00:00:00', strtotime("{$selectedYear}-{$selectedMonth}-01"));
-        $endOfMonth = date('Y-m-t 23:59:59', strtotime("{$selectedYear}-{$selectedMonth}-01"));
+        $labels = [];
+        $incomeData = [];
+        $expenseData = [];
+        $profitData = [];
 
-        // Data untuk Grafik Pendapatan Harian (dalam bulan yang dipilih)
-        $dailyIncomeData = [];
-        $daysInMonth = date('t', strtotime("{$selectedYear}-{$selectedMonth}-01"));
+        $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
 
         for ($d = 1; $d <= $daysInMonth; $d++) {
-            $currentDate = date('Y-m-d', strtotime("{$selectedYear}-{$selectedMonth}-{$d}"));
-            $income = Transaction::whereDate('transaction_date', $currentDate)->sum('total_amount');
-            $dailyIncomeData[$d] = $income;
+            $dateString = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $labels[] = $d;
+
+            $income = Transaction::whereDate('transaction_date', $dateString)->sum('total_amount');
+            $expense = Expense::whereDate('expense_date', $dateString)->sum('amount');
+
+            $incomeData[] = $income;
+            $expenseData[] = $expense;
+            $profitData[] = $income - $expense;
         }
 
-        // Kirim data ke view grafik harian
-        return view('grafikharian', [ // Menggunakan 'grafikharian' sesuai konfirmasi Anda
-            'selectedYear' => $selectedYear,
-            'selectedMonth' => $selectedMonth,
-            'dailyIncomeData' => $dailyIncomeData
-        ]);
+        $chartTitle = 'Grafik Harian - '.date('F', mktime(0, 0, 0, $month, 1))." $year";
+
+        return view('grafikharian', compact(
+            'labels',
+            'incomeData',
+            'expenseData',
+            'profitData',
+            'year',
+            'month',
+            'chartTitle'
+        ));
     }
 }

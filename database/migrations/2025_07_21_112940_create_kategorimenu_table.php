@@ -6,20 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('kategorimenu', function (Blueprint $table) {
+        Schema::create('kategori', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 255)->unique(); // Pastikan unique
+            $table->string('name', 255)->unique();
             $table->timestamps();
         });
     }
-    
+
     public function down(): void
     {
-        Schema::dropIfExists('kategorimenu');
+        Schema::dropIfExists('kategori');
     }
 };
